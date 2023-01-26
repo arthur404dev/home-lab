@@ -4,11 +4,11 @@ version: "3.7"
 networks:
   traefik_proxy:
     external: true
+  traefik_internal:
+    external: true
   nextcloud:
     driver: bridge
   default:
-    driver: bridge
-  internal:
     driver: bridge
 
 services:
@@ -161,7 +161,7 @@ services:
     container_name: qbittorrent
     image: cr.hotio.dev/hotio/qbittorrent
     networks:
-      - internal
+      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
@@ -188,7 +188,7 @@ services:
     container_name: sonarr
     image: cr.hotio.dev/hotio/sonarr
     networks:
-      - internal
+      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
@@ -214,7 +214,7 @@ services:
     container_name: jackett
     image: cr.hotio.dev/hotio/jackett
     networks:
-      - internal
+      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
