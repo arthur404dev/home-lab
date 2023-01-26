@@ -9,10 +9,10 @@ networks:
   default:
     driver: bridge
   internal:
-    driver: overlay
+    driver: bridge
     ipam:
       config:
-        - subnet: 172.16.11.0/24
+        - subnet: 172.18.5.0/24
 
 services:
   ### -> SERVICES
