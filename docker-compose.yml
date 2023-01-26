@@ -205,3 +205,27 @@ services:
       ## HTTP Services
       - "traefik.http.routers.sonarr-rtr.service=sonarr-svc"
       - "traefik.http.services.sonarr-svc.loadbalancer.server.port=8989"
+  # Jackett - Indexer for torrent trackers
+  jackett:
+    container_name: jackett
+    image: cr.hotio.dev/hotio/jackett
+    networks:
+      - traefik_proxy
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - UMASK=002
+      - TZ=$TZ
+    volumes:
+      - $DOCKERDIR/jackett/config:/config
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.jackett-rtr.entrypoints=https"
+      - "traefik.http.routers.jackett-rtr.rule=Host(`jackett.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.jackett-rtr.tls=true"
+      ## Middlewares
+      - "traefik.http.routers.jackett-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.jackett-rtr.service=jackett-svc"
+      - "traefik.http.services.jackett-svc.loadbalancer.server.port=9117"
