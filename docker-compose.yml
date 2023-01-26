@@ -11,21 +11,36 @@ networks:
   default:
     driver: bridge
 
-services:
-  ### -> SERVICES
+### -> EXTENSION FIELDS
 
+# Keys common to isolated services/apps
+x-common-keys-isolated:
+  &common-keys-isolated
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+# Keys common to some of the dependent services/apps
+x-common-keys-apps:
+  &common-keys-apps
+  networks:
+    - traefik_proxy
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+### -> SERVICES
+services:
   # -> Homarr - Main Dashboard for services
   homarr:
+    <<: *common-keys-apps
     container_name: homarr
     image: ghcr.io/ajnart/homarr:latest
-    restart: unless-stopped
     volumes:
       - $DOCKERDIR/homarr/data/configs:/app/data/configs
       - $DOCKERDIR/homarr/data/icons:/app/public/icons
       - $DOCKERDIR/homarr/data/img:/app/public/img
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - traefik_proxy
     labels:
       - "traefik.enable=true"
       ## HTTP Routers
@@ -40,9 +55,9 @@ services:
 
   # -> Cloudflare Companion - Automatic CNAME DNS Creation
   cf-companion:
+    <<: *common-keys-isolated
     container_name: cf-companion
     image: tiredofit/traefik-cloudflare-companion:latest
-    restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
@@ -60,9 +75,9 @@ services:
       - "traefik.http.routers.cf-companion-rtr.rule=HostHeader(`pihole.$DOMAINNAME_CLOUD_SERVER`) || HostHeader(`proxmox.$DOMAINNAME_CLOUD_SERVER`) || HostHeader(`truenas.$DOMAINNAME_CLOUD_SERVER`)"
   # -> NextCloud - Personal Cloud
   nextcloud:
+    <<: *common-keys-apps
     container_name: nextcloud
     image: nextcloud
-    restart: unless-stopped
     volumes:
       - $NFS_HDD/docker/nextcloud/data:/var/www/html/data
       - $DOCKERDIR/nextcloud/data/config:/var/www/html/config
@@ -94,9 +109,9 @@ services:
       - "traefik.http.services.nextcloud-svc.loadbalancer.server.port=80"
   # -> Nextcloud Database - Using MariaDB, but can also use MySQL or PostgreSQL
   mariadb:
+    <<: *common-keys-isolated
     container_name: mariadb
     image: mariadb
-    restart: unless-stopped
     command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     networks:
       - nextcloud
@@ -109,6 +124,7 @@ services:
       MYSQL_PASSWORD: mariadb
   # -> Jellyfin - Mediaserver
   jellyfin:
+    <<: *common-keys-isolated
     container_name: 'jellyfin'
     image: jellyfin/jellyfin
     user: $PUID:$PGID
@@ -123,7 +139,6 @@ services:
       - $DOCKERDIR/jellyfin/cache:/cache
       # Update this configuration as desired
       - $MEDIADIR/media:/media
-    restart: always
     devices:
       # VAAPI Devices
       # - /dev/dri/renderD128:/dev/dri/renderD128
@@ -158,10 +173,9 @@ services:
       - 'traefik.http.routers.jellyfin-insecure-rtr.service=noop@internal'
   # qBitTorrent - torrent client
   qbittorrent:
+    <<: *common-keys-apps
     container_name: qbittorrent
     image: cr.hotio.dev/hotio/qbittorrent
-    networks:
-      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
@@ -185,10 +199,9 @@ services:
       - "traefik.http.services.qbit-svc.loadbalancer.server.port=8080"
   # Sonarr - PVR for TV shows
   sonarr:
+    <<: *common-keys-apps
     container_name: sonarr
     image: cr.hotio.dev/hotio/sonarr
-    networks:
-      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
@@ -211,10 +224,9 @@ services:
       - "traefik.http.services.sonarr-svc.loadbalancer.server.port=8989"
   # Jackett - Indexer for torrent trackers
   jackett:
+    <<: *common-keys-apps
     container_name: jackett
     image: cr.hotio.dev/hotio/jackett
-    networks:
-      - traefik_internal
     environment:
       - PUID=$PUID
       - PGID=$PGID
