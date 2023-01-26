@@ -226,7 +226,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
       ## HTTP Routers
-      - "traefik.http.routers.jackett-rtr.entrypoints=https"
+      - "traefik.http.routers.jackett-rtr.entrypoints=http"
       - "traefik.http.routers.jackett-rtr.rule=Host(`jackett.$DOMAINNAME_CLOUD_SERVER`)"
       - "traefik.http.routers.jackett-rtr.tls=true"
       ## Middlewares
