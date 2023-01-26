@@ -180,3 +180,28 @@ services:
       ## HTTP Services
       - "traefik.http.routers.qbit-rtr.service=qbit-svc"
       - "traefik.http.services.qbit-svc.loadbalancer.server.port=8080"
+  # Sonarr - PVR for TV shows
+  sonarr:
+    container_name: sonarr
+    image: cr.hotio.dev/hotio/sonarr
+    networks:
+      - traefik_proxy
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - UMASK=002
+      - TZ=$TZ
+    volumes:
+      - $DOCKERDIR/sonarr/config:/config
+      - $MEDIADIR:/data
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.sonarr-rtr.entrypoints=https"
+      - "traefik.http.routers.sonarr-rtr.rule=Host(`sonarr.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.sonarr-rtr.tls=true"
+      ## Middlewares
+      - "traefik.http.routers.sonarr-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.sonarr-rtr.service=sonarr-svc"
+      - "traefik.http.services.sonarr-svc.loadbalancer.server.port=8080"
