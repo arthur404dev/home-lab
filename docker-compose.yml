@@ -179,8 +179,8 @@ services:
     # ports:
     #   - "$JDOWNLOADER_PORT:5800"
     volumes:
-      - $STORAGEDIR/downloads:/data/downloads
-      - $DOCKERDIR/appdata/jdownloader:/config
+      - $MEDIADIR/downloads:/data/downloads
+      - $DOCKERDIR/jdownloader:/config
     environment:
       USER_ID: $PUID
       GROUP_ID: $PGID
@@ -225,7 +225,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - $DOCKERDIR/transmission-vpn/data:/data
       - $DOCKERDIR/transmission-vpn/config:/config
-      - $STORAGEDIR/downloads:/data/downloads
+      - $MEDIADIR/downloads:/data/downloads
     environment:
       USER_ID: $PUID
       GROUP_ID: $PGID
