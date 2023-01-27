@@ -176,8 +176,8 @@ services:
     <<: *common-keys-apps
     image: jlesage/jdownloader-2:latest
     container_name: jdownloader
-    # ports:
-    #   - "$JDOWNLOADER_PORT:5800"
+    ports:
+      - "$PORT_JDOWN:5800"
     volumes:
       - $MEDIADIR/downloads:/data/downloads
       - $DOCKERDIR/jdownloader:/config
@@ -212,8 +212,8 @@ services:
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.169
-    # ports:
-    #  - "$TRANSMISSION_PORT:9091" if vpn is enabled you cannot access transmission using host ip
+    ports:
+      - "$PORT_TRANS:9091"
     cap_add:
       - NET_ADMIN
     devices:
@@ -269,3 +269,63 @@ services:
       ## HTTP Services
       - "traefik.http.routers.transmission-vpn-rtr.service=transmission-vpn-svc"
       - "traefik.http.services.transmission-vpn-svc.loadbalancer.server.port=9091"
+  # qBittorrent - Torrent downloader
+  qbittorrent:
+    <<: *common-keys-apps
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    #network_mode: container:transmission-vpn
+    ports:
+      - "$PORT_QBIT:8080"
+    volumes:
+      - $DOCKERDIR/qbittorrent/config:/config
+      - $MEDIADIR/downloads:/data/downloads
+    environment:
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
+      UMASK_SET: 2
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.qbittorrent-rtr.entrypoints=https"
+      - "traefik.http.routers.qbittorrent-rtr.rule=Host(`qbit.$DOMAINNAME_CLOUD_SERVER`)"
+      ## Middlewares
+      - "traefik.http.routers.qbittorrent-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.qbittorrent-rtr.service=qbittorrent-svc"
+      - "traefik.http.services.qbittorrent-svc.loadbalancer.server.port=8080"
+
+  # nzbget - Binary newsgrabber (NZB downloader)
+  nzbget:
+    <<: *common-keys-apps
+    image: lscr.io/linuxserver/nzbget
+    container_name: nzbget
+    networks:
+      traefik_proxy:
+        ipv4_address: 192.168.90.216
+    ports:
+      - "$PORT_NZBGET:6789"
+    volumes:
+      - $DOCKERDIR/nzbget/config:/config
+      - $MEDIADIR/downloads:/data/downloads
+    environment:
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers Auth Bypass
+      - "traefik.http.routers.nzbget-rtr-bypass.entrypoints=https"
+      - "traefik.http.routers.nzbget-rtr-bypass.priority=100"
+      ## HTTP Routers Auth
+      - "traefik.http.routers.nzbget-rtr.entrypoints=https"
+      - "traefik.http.routers.nzbget-rtr.rule=Host(`nzbget.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.nzbget-rtr.priority=99"
+      ## Middlewares
+      - "traefik.http.routers.nzbget-rtr-bypass.middlewares=chain-no-auth@file"
+      - "traefik.http.routers.nzbget-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.nzbget-rtr.service=nzbget-svc"
+      - "traefik.http.routers.nzbget-rtr-bypass.service=nzbget-svc"
+      - "traefik.http.services.nzbget-svc.loadbalancer.server.port=6789"
