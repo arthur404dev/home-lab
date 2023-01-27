@@ -131,9 +131,7 @@ services:
       - '107' #render
       - '44' #video
     # # Network mode of 'host' exposes the ports on the host. This is needed for DLNA access.
-    # network_mode: 'host'
-    networks:
-      - traefik_proxy
+    network_mode: 'host'
     volumes:
       - $DOCKERDIR/jellyfin/config:/config
       - $DOCKERDIR/jellyfin/cache:/cache
