@@ -145,15 +145,15 @@ services:
       - 'traefik.enable=true'
       ## HTTP Router
       - 'traefik.http.routers.jellyfin.entryPoints=https'
-      - 'traefik.http.routers.jellyfin.rule=Host(`jelly.$DOMAINNAME_CLOUD_SERVER`)'
+      - 'traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
       ## TLS config
       - 'traefik.http.routers.jellyfin.tls=true'
-      - 'traefik.http.routers.jellyfin.tls.domains=jelly.$DOMAINNAME_CLOUD_SERVER'
+      - 'traefik.http.routers.jellyfin.tls.domains=jellyfin.$DOMAINNAME_CLOUD_SERVER'
       ## Middleware
       - 'traefik.http.routers.jellyfin.middlewares=jellyfin-mw'
       - 'traefik.http.middlewares.jellyfin-mw.headers.customResponseHeaders.X-Robots-Tag=noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex'
       - 'traefik.http.middlewares.jellyfin-mw.headers.SSLRedirect=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jelly.$DOMAINNAME_CLOUD_SERVER:9999'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jellyfin.$DOMAINNAME_CLOUD_SERVER:9999'
       - 'traefik.http.middlewares.jellyfin-mw.headers.SSLForceHost=true'
       - 'traefik.http.middlewares.jellyfin-mw.headers.STSSeconds=315360000'
       - 'traefik.http.middlewares.jellyfin-mw.headers.STSIncludeSubdomains=true'
@@ -169,7 +169,7 @@ services:
       - 'traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true'
       ## Redirection of HTTP on port 9999 to HTTPS on port 9999 (consistent protocol)
       - 'traefik.http.routers.jellyfin-insecure.entryPoints=http'
-      - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jelly.$DOMAINNAME_CLOUD_SERVER`)'
+      - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
       - 'traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw'
       - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https'
       - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999'
