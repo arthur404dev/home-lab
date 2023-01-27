@@ -144,7 +144,7 @@ services:
     labels:
       - 'traefik.enable=true'
       ## HTTP Router
-      - 'traefik.http.routers.jellyfin.entryPoints=https'
+      - 'traefik.http.routers.jellyfin.entryPoints=secure'
       - 'traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
       ## TLS config
       - 'traefik.http.routers.jellyfin.tls=true'
@@ -168,7 +168,7 @@ services:
       - 'traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096'
       - 'traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true'
       ## Redirection of HTTP on port 9999 to HTTPS on port 9999 (consistent protocol)
-      - 'traefik.http.routers.jellyfin-insecure.entryPoints=https'
+      - 'traefik.http.routers.jellyfin-insecure.entryPoints=secure'
       - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
       - 'traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw'
       - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https'
