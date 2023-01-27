@@ -167,6 +167,14 @@ services:
       - 'traefik.http.routers.jellyfin.service=jellyfin-svc@file'
       - 'traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096'
       - 'traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true'
+      ## Redirection of HTTP on port 9999 to HTTPS on port 9999 (consistent protocol)
+      - 'traefik.http.routers.jellyfin-insecure.entryPoints=http'
+      - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jelly.$DOMAINNAME_CLOUD_SERVER`)'
+      - 'traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false'
+      - 'traefik.http.routers.jellyfin-insecure.service=noop@internal'
   # jDownloader - Download management
   jdownloader:
     <<: *common-keys-apps
