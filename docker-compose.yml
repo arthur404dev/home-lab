@@ -61,14 +61,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - TIMEZONE=$TZ
-      - TRAEFIK_VERSION=2
-      - CF_EMAIL=$CLOUDFLARE_EMAIL # Same as traefik
-      - CF_TOKEN=$CLOUDFLARE_API_KEY # Same as traefik
-      - TARGET_DOMAIN=$DOMAINNAME_CLOUD_SERVER
-      - DOMAIN1=$DOMAINNAME_CLOUD_SERVER
-      - DOMAIN1_ZONE_ID=$CLOUDFLARE_ZONEID # Copy from Cloudflare Overview page
-      - DOMAIN1_PROXIED=TRUE
+      TIMEZONE: $TZ
+      TRAEFIK_VERSION: 2
+      CF_EMAIL: $CLOUDFLARE_EMAIL # Same as traefik
+      CF_TOKEN: $CLOUDFLARE_API_KEY # Same as traefik
+      TARGET_DOMAIN: $DOMAINNAME_CLOUD_SERVER
+      DOMAIN1: $DOMAINNAME_CLOUD_SERVER
+      DOMAIN1_ZONE_ID: $CLOUDFLARE_ZONEID # Copy from Cloudflare Overview page
+      DOMAIN1_PROXIED: TRUE
     labels:
       # Add hosts specified in rules here to force cf-companion to create the CNAMEs
       # Since cf-companion creates CNAMEs based on host rules, this a workaround for non-docker/external apps
@@ -89,11 +89,11 @@ services:
     links:
       - mariadb
     environment:
-      - MYSQL_USER=mariadb
-      - MYSQL_DATABASE=mariadb
-      - MYSQL_ROOT_PASSWORD=$DB_PASSWORD_ROOT
-      - MYSQL_PASSWORD=mariadb
-      - MYSQL_HOST=mariadb
+      MYSQL_USER: mariadb
+      MYSQL_DATABASE: mariadb
+      MYSQL_ROOT_PASSWORD: $DB_PASSWORD_ROOT
+      MYSQL_PASSWORD: mariadb
+      MYSQL_HOST: mariadb
     labels:
       - "traefik.enable=true"
       ## HTTP Routers
@@ -171,7 +171,7 @@ services:
       - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999'
       - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false'
       - 'traefik.http.routers.jellyfin-insecure-rtr.service=noop@internal'
-# jDownloader - Download management
+  # jDownloader - Download management
   jdownloader:
     <<: *common-keys-apps
     image: jlesage/jdownloader-2:latest
@@ -185,7 +185,7 @@ services:
       USER_ID: $PUID
       GROUP_ID: $PGID
       TZ: $TZ
-      UMASK: 002
+      UMASK: 2
       KEEP_APP_RUNNING: 1
       CLEAN_TMP_DIR: 1
       DISPLAY_WIDTH: 1600
@@ -227,7 +227,9 @@ services:
       - $DOCKERDIR/transmission-vpn/config:/config
       - $STORAGEDIR/downloads:/data/downloads
     environment:
-      <<: *default-tz-puid-pgid
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
       OPENVPN_PROVIDER: NORDVPN
       OPENVPN_USERNAME: $NORD_USERNAME
       OPENVPN_PASSWORD: $NORD_PASSWORD
@@ -241,7 +243,7 @@ services:
       TRANSMISSION_RPC_HOST_WHITELIST: "127.0.0.1,$SERVER_IP"
       TRANSMISSION_RPC_PASSWORD: $TRANSMISSION_RPC_PASSWORD
       TRANSMISSION_RPC_USERNAME: $TRANSMISSION_RPC_USERNAME
-      TRANSMISSION_UMASK: 002
+      TRANSMISSION_UMASK: 2
       TRANSMISSION_RATIO_LIMIT: 1.0
       TRANSMISSION_RATIO_LIMIT_ENABLED: "true"
       TRANSMISSION_ALT_SPEED_DOWN: 2000
