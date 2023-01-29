@@ -27,6 +27,15 @@ x-common-keys-apps:
     - no-new-privileges:true
   restart: unless-stopped
 
+# Keys common to some of the dependent services/apps
+x-common-keys-media:
+  &common-keys-media
+  networks:
+    - traefik_proxy
+  security_opt:
+    - no-new-privileges:true
+  restart: "no"
+
 ### -> SERVICES
 services:
   # -> Homarr - Main Dashboard for services
@@ -361,3 +370,80 @@ services:
       ## HTTP Services
       - "traefik.http.routers.prowlarr-rtr.service=prowlarr-svc"
       - "traefik.http.services.prowlarr-svc.loadbalancer.server.port=9696"
+  # Radarr - Movie management
+  radarr:
+    <<: *common-keys-media
+    image: lscr.io/linuxserver/radarr:nightly # latest was causing "Error parsing column 45"
+    container_name: radarr
+    networks:
+      traefik_proxy:
+        ipv4_address: 192.168.90.164
+    ports:
+      - "$PORT_RADARR:7878"
+    volumes:
+      - $DOCKERDIR/radarr/config:/config
+      - $MEDIADIR/temp/appdata/radarr/MediaCover:/config/MediaCover
+      - $MEDIADIR:/data
+      - $MEDIADIR/downloads/torrents:/data/downloads/torrents
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers Auth Bypass
+      - "traefik.http.routers.radarr-rtr-bypass.entrypoints=https"
+      - "traefik.http.routers.radarr-rtr-bypass.rule=Host(`radarr.$DOMAINNAME_CLOUD_SERVER`) && (Headers(`X-Api-Key`, `$API_KEY_RADARR`) || Query(`apikey`, `$API_KEY_RADARR`))"
+      #- "traefik.http.routers.radarr-rtr-bypass.rule=Headers(`traefik-auth-bypass-key`, `$TRAEFIK_AUTH_BYPASS_KEY`)" # Bypass Auth for LunaSea on iOS
+      - "traefik.http.routers.radarr-rtr-bypass.priority=100"
+      ## HTTP Routers Auth
+      - "traefik.http.routers.radarr-rtr.entrypoints=https"
+      - "traefik.http.routers.radarr-rtr.rule=Host(`radarr.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.radarr-rtr.priority=99"
+      ## Middlewares
+      - "traefik.http.routers.radarr-rtr-bypass.middlewares=chain-no-auth@file"
+      - "traefik.http.routers.radarr-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.radarr-rtr.service=radarr-svc"
+      - "traefik.http.routers.radarr-rtr-bypass.service=radarr-svc"
+      - "traefik.http.services.radarr-svc.loadbalancer.server.port=7878"
+
+  # Sonarr - TV Shows management
+  sonarr:
+    <<: *common-keys-media
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    networks:
+      traefik_proxy:
+        ipv4_address: 192.168.90.167
+    ports:
+      - "$PORT_SONARR:8989"
+    volumes:
+      - $DOCKERDIR/appdata/sonarr:/config
+      - $MEDIADIR/temp/appdata/sonarr/MediaCover:/config/MediaCover
+      - $MEDIADIR:/data
+      - $MEDIADIR/downloads/torrents:/data/downloads/torrents
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers Auth Bypass
+      - "traefik.http.routers.sonarr-rtr-bypass.entrypoints=https"
+      - "traefik.http.routers.sonarr-rtr-bypass.rule=Host(`sonarr.$DOMAINNAME_CLOUD_SERVER`) && (Headers(`X-Api-Key`, `$API_KEY_SONARR`) || Query(`apikey`, `$API_KEY_SONARR`))"
+      #- "traefik.http.routers.sonarr-rtr-bypass.rule=Headers(`traefik-auth-bypass-key`, `$TRAEFIK_AUTH_BYPASS_KEY`)" # Bypass Auth for LunaSea on iOS
+      - "traefik.http.routers.sonarr-rtr-bypass.priority=100"
+      ## HTTP Routers Auth
+      - "traefik.http.routers.sonarr-rtr.entrypoints=https"
+      - "traefik.http.routers.sonarr-rtr.rule=Host(`sonarr.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.sonarr-rtr.priority=99"
+      ## Middlewares
+      - "traefik.http.routers.sonarr-rtr-bypass.middlewares=chain-no-auth@file"
+      - "traefik.http.routers.sonarr-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.sonarr-rtr.service=sonarr-svc"
+      - "traefik.http.routers.sonarr-rtr-bypass.service=sonarr-svc"
+      - "traefik.http.services.sonarr-svc.loadbalancer.server.port=8989"
