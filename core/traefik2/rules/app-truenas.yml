@@ -1,0 +1,16 @@
+http:
+  routers:
+    truenas-rtr:
+      rule: 'Host(`truenas.{{env "DOMAINNAME_CLOUD_SERVER"}}`)'
+      entryPoints:
+        - https
+      middlewares:
+        - chain-oauth
+      service: truenas-svc
+      tls:
+        certResolver: dns-cloudflare
+  services:
+    truenas-svc:
+      loadBalancer:
+        servers:
+          - url: "http://INSERT_YOUR_LOCAL_IP_HERE.100"

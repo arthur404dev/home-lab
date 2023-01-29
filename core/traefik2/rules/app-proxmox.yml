@@ -1,0 +1,32 @@
+http:
+  routers:
+    proxmox-rtr:
+      rule: 'Host(`proxmox.{{env "DOMAINNAME_CLOUD_SERVER"}}`)'
+      entryPoints:
+        - https
+      middlewares:
+        - chain-oauth
+        - default-headers
+      service: proxmox-svc
+      tls:
+        certResolver: dns-cloudflare
+  services:
+    proxmox-svc:
+      loadBalancer:
+        servers:
+          - url: "http://INSERT_YOUR_LOCAL_IP_HERE:8006"
+        passHostHeader: true
+
+  middlewares:
+    default-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 15552000
+        customFrameOptionsValue: SAMEORIGIN
+        customRequestHeaders:
+          X-Forwarded-Proto: https

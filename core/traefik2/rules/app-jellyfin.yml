@@ -1,0 +1,16 @@
+http:
+  routers:
+    jellyfin-rtr:
+      rule: 'Host(`jellyfin.{{env "DOMAINNAME_CLOUD_SERVER"}}`)'
+      entryPoints:
+        - https
+      middlewares:
+        - chain-no-auth
+      service: jellyfin-svc
+      tls:
+        certResolver: dns-cloudflare
+  services:
+    jellyfin-svc:
+      loadBalancer:
+        servers:
+          - url: "http://INSERT_YOUR_LOCAL_IP_HERE:8096"
