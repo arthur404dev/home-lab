@@ -133,7 +133,7 @@ services:
       - INSECURE_COOKIE=false
       - AUTH_HOST=oauth.$DOMAINNAME_CLOUD_SERVER
       - URL_PATH=/_oauth
-      - WHITELIST=$OAUTH_EMAIL_1,$OAUTH_EMAIL_2
+      - WHITELIST=$WHITELISTED_OAUTH_EMAILS
       - LOG_LEVEL=info
       - LOG_FORMAT=text
       - LIFETIME=2592000 # 30 days
