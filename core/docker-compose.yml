@@ -13,41 +13,58 @@ services:
   # -> Traefik - Reverse proxy
   traefik:
     container_name: traefik
-    image: traefik:2.2.1
+    image: traefik:latest
     restart: unless-stopped
     command:
-      # CLI arguments
       - --global.checkNewVersion=true
       - --global.sendAnonymousUsage=true
       - --entryPoints.http.address=:80
       - --entryPoints.https.address=:443
+      - --entryPoints.secure.address=:9999
       # Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
-      - --entrypoints.https.forwardedHeaders.trustedIPs=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/12,172.64.0.0/13,131.0.72.0/22
+      - --entrypoints.https.forwardedHeaders.trustedIPs=$CLOUDFLARE_IPS,$LOCAL_IPS
       - --entryPoints.traefik.address=:8080
+      # - --entryPoints.ping.address=:8081
       - --api=true
       # - --api.insecure=true
+      - --api.dashboard=true
+      #- --ping=true
       # - --serversTransport.insecureSkipVerify=true
       - --log=true
-      - --log.level=DEBUG # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      # - --log.filePath=/logs/traefik.log
+      - --log.level=INFO # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
       - --accessLog=true
-      - --accessLog.filePath=/traefik.log
+      - --accessLog.filePath=/logs/access.log
       - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
-      - --accessLog.filters.statusCodes=400-499
+      - --accessLog.filters.statusCodes=204-299,400-499,500-599
       - --providers.docker=true
-      - --providers.docker.endpoint=unix:///var/run/docker.sock
-      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.$DOMAINNAME_CLOUD_SERVER`)
+      - --providers.docker.endpoint=unix:///var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+      # - --providers.docker.endpoint=tcp://socket-proxy:2375
+      # Automatically set Host rule for services
+      # - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.$DOMAINNAME_CLOUD_SERVER`)
       - --providers.docker.exposedByDefault=false
+      # - --entrypoints.https.http.middlewares=chain-oauth@file
+      - --entrypoints.https.http.tls.options=tls-opts@file
+      # Add dns-cloudflare as default certresolver for all services. Also enables TLS and no need to specify on individual services
+      - --entrypoints.https.http.tls.certresolver=dns-cloudflare
+      - --entrypoints.https.http.tls.domains[0].main=$DOMAINNAME_CLOUD_SERVER
+      - --entrypoints.https.http.tls.domains[0].sans=*.$DOMAINNAME_CLOUD_SERVER
+      # - --entrypoints.https.http.tls.domains[1].main=$DOMAINNAME2 # Pulls main cert for second domain
+      # - --entrypoints.https.http.tls.domains[1].sans=*.$DOMAINNAME2 # Pulls wildcard cert for second domain
       - --providers.docker.network=traefik_proxy
       - --providers.docker.swarmMode=false
-      - --providers.file.directory=/rules # Load dynamic configuration from one or more .toml or .yml files in a directory.
-      # - --providers.file.filename=/path/to/file # Load dynamic configuration from a file.
+      - --providers.file.directory=/rules # Load dynamic configuration from one or more .toml or .yml files in a directory
+      # - --providers.file.filename=/path/to/file # Load dynamic configuration from a file
       - --providers.file.watch=true # Only works on top level files in the rules folder
       # - --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
       - --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
       - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
     networks:
-      - traefik_proxy
+      traefik_proxy:
+        ipv4_address: 192.168.90.254
     security_opt:
       - no-new-privileges:true
     ports:
@@ -59,21 +76,26 @@ services:
         published: 443
         protocol: tcp
         mode: host
-      - target: 8080
-        published: 8080
+      - target: 9999
+        published: 9999
         protocol: tcp
         mode: host
+      # - target: 8080
+      #   published: 8080
+      #   protocol: tcp
+      #   mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - $DOCKERDIR/traefik2/rules:/rules
       - $DOCKERDIR/traefik2/acme/acme.json:/acme.json
-      - $DOCKERDIR/traefik2/traefik.log:/traefik.log
+      - $DOCKERDIR/traefik2/logs:/logs
       - $DOCKERDIR/shared:/shared
     environment:
       - CF_API_EMAIL=$CLOUDFLARE_EMAIL
       - CF_API_KEY=$CLOUDFLARE_API_KEY
       - PUID=$PUID
       - PGID=$PGID
+      - DOMAINNAME_CLOUD_SERVER
     labels:
       - "traefik.enable=true"
       # HTTP-to-HTTPS Redirect
@@ -94,8 +116,7 @@ services:
       - "traefik.http.routers.traefik-rtr.service=api@internal"
       ## Middlewares
       - "traefik.http.routers.traefik-rtr.middlewares=chain-oauth@file"
-
-  # -> Traefik-Forward-Auth - Google Oauth forwarder to enable oauth middleware on Traefik
+      # -> Traefik-Forward-Auth - Google Oauth forwarder to enable oauth middleware on Traefik
   oauth:
     container_name: oauth
     image: thomseddon/traefik-forward-auth:latest
