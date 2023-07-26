@@ -9,92 +9,21 @@ networks:
   default:
     driver: bridge
 
-### -> EXTENSION FIELDS
-
-## CORE SERVICES ##
-# Keys common to core services
-x-common-keys-core:
-  &common-keys-core
-  networks:
-    - traefik_proxy
-  security_opt:
-    - no-new-privileges:true
-  restart: always
-  profiles:
-    - core
-
-# Keys common to core services without access to proxy network
-x-common-keys-core-isolated:
-  &common-keys-core-isolated
-  security_opt:
-    - no-new-privileges:true
-  restart: always
-  profiles:
-    - core
-
-## APPS ##
-# Keys common to some of the dependent services/apps
-x-common-keys-apps:
-  &common-keys-apps
-  networks:
-    - traefik_proxy
-  security_opt:
-    - no-new-privileges:true
-  restart: unless-stopped
-  profiles:
-    - apps
-
-# Keys common to isolated services/apps without access to proxy network
-x-common-keys-apps-isolated:
-  &common-keys-apps-isolated
-  security_opt:
-    - no-new-privileges:true
-  restart: unless-stopped
-  profiles:
-    - apps
-
-## DOWNLOADERS ##
-# Keys common to some of the dependent downloaders
-x-common-keys-downloaders:
-  &common-keys-downloaders
-  networks:
-    - traefik_proxy
-  security_opt:
-    - no-new-privileges:true
-  restart: unless-stopped
-  profiles:
-    - downloaders
-
-## MEDIA ##
-# Keys common to media services
-x-common-keys-media:
-  &common-keys-media
-  networks:
-    - traefik_proxy
-  security_opt:
-    - no-new-privileges:true
-  restart: "no"
-  profiles:
-    - media
-
-# Keys common to media services without access to proxy network
-x-common-keys-media-isolated:
-  &common-keys-media-isolated
-  security_opt:
-    - no-new-privileges:true
-  restart: "no"
-  profiles:
-    - media
-
 ### -> SERVICES
 services:
-  ## CORE SERVICES ##
   # -> Traefik - Reverse proxy
+  # Create traefik.log and acme/acme.json then set it permissions to 600
+  # touch $DOCKERDIR/appdata/traefik2/acme/acme.json
+  # chmod 600 $DOCKERDIR/appdata/traefik2/acme/acme.json
+  # touch $DOCKERDIR/logs/cloudserver/traefik.log
+  # touch $DOCKERDIR/logs/cloudserver/acess.log
   traefik:
-    <<: *common-keys-core
     container_name: traefik
     image: traefik:latest
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
+    profiles: ["core", "all"]
     command:
       - --global.checkNewVersion=true
       - --global.sendAnonymousUsage=true
@@ -197,9 +126,14 @@ services:
 
   # -> Traefik-Forward-Auth - Google Oauth forwarder to enable oauth middleware on Traefik
   oauth:
-    <<: *common-keys-core
     container_name: oauth
-    image: thomseddon/traefik-forward-auth:latest
+    image: thomseddon/traefik-forward-auth:latest # image: thomseddon/traefik-forward-auth:2.1-arm -> Use this one if you're running a raspberryPi
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["core", "all"]
+    networks:
+      - traefik_proxy
     environment:
       - CLIENT_ID=$GOOGLE_CLIENT_ID
       - CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
@@ -226,9 +160,14 @@ services:
 
   # -> Portainer - For Docker container management
   portainer:
-    <<: *common-keys-core
     container_name: portainer
-    image: portainer/portainer:latest
+    image: portainer/portainer-ce:latest
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["core", "all"]
+    networks:
+      - traefik_proxy
     # ports:
     #   - 9000:9000
     volumes:
@@ -251,9 +190,14 @@ services:
 
   # -> Cloudflare Companion - Automatic CNAME DNS Creation
   cf-companion:
-    <<: *common-keys-core
     container_name: cf-companion
     image: tiredofit/traefik-cloudflare-companion:latest
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["core", "all"]
+    networks:
+      - traefik_proxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
@@ -264,18 +208,22 @@ services:
       TARGET_DOMAIN: $DOMAINNAME_CLOUD_SERVER
       DOMAIN1: $DOMAINNAME_CLOUD_SERVER
       DOMAIN1_ZONE_ID: $CLOUDFLARE_ZONEID # Copy from Cloudflare Overview page
-      DOMAIN1_PROXIED: TRUE
+      DOMAIN1_PROXIED: "TRUE"
     labels:
       # Add hosts specified in rules here to force cf-companion to create the CNAMEs
       # Since cf-companion creates CNAMEs based on host rules, this a workaround for non-docker/external apps
       - "traefik.http.routers.cf-companion-rtr.rule=HostHeader(`pihole.$DOMAINNAME_CLOUD_SERVER`) || HostHeader(`proxmox.$DOMAINNAME_CLOUD_SERVER`) || HostHeader(`truenas.$DOMAINNAME_CLOUD_SERVER`)"
 
-  ## CLOUD APPS ##
   # -> Homarr - Main Dashboard for services
   homarr:
-    <<: *common-keys-apps
     container_name: homarr
     image: ghcr.io/ajnart/homarr:latest
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["apps", "all"]
+    networks:
+      - traefik_proxy
     volumes:
       - $DOCKERDIR/appdata/homarr/data/configs:/app/data/configs
       - $DOCKERDIR/appdata/homarr/data/icons:/app/public/icons
@@ -293,118 +241,82 @@ services:
       - "traefik.http.routers.homarr-rtr.service=homarr-svc"
       - "traefik.http.services.homarr-svc.loadbalancer.server.port=7575"
 
-  # -> NextCloud - Personal Cloud
-  nextcloud:
-    <<: *common-keys-apps
-    container_name: nextcloud
-    image: nextcloud
-    volumes:
-      - $NFS_HDD/docker/nextcloud/data:/var/www/html/data
-      - $DOCKERDIR/appdata/nextcloud/data/config:/var/www/html/config
-      - $DOCKERDIR/appdata/nextcloud/data/custom_apps:/var/www/html/custom_apps
-      - $DOCKERDIR/appdata/nextcloud/data/themes:/var/www/html/themes
-    networks:
-      - nextcloud
-    links:
-      - mariadb
-    environment:
-      MYSQL_USER: mariadb
-      MYSQL_DATABASE: mariadb
-      MYSQL_ROOT_PASSWORD: $DB_PASSWORD_ROOT
-      MYSQL_PASSWORD: mariadb
-      MYSQL_HOST: mariadb
-    labels:
-      - "traefik.enable=true"
-      ## HTTP Routers
-      - "traefik.http.routers.nextcloud-rtr.entrypoints=https"
-      - "traefik.http.routers.nextcloud-rtr.rule=Host(`nextcloud.$DOMAINNAME_CLOUD_SERVER`)"
-      - "traefik.http.routers.nextcloud-rtr.tls=true"
-      ## Middlewares
-      - "traefik.http.routers.nextcloud-rtr.middlewares=chain-no-auth@file,nextcloud-dav"
-      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav"
-      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/"
-      ## HTTP Services
-      - "traefik.http.routers.nextcloud-rtr.service=nextcloud-svc"
-      - "traefik.http.services.nextcloud-svc.loadbalancer.server.port=80"
-
-  # -> Nextcloud Database - Using MariaDB, but can also use MySQL or PostgreSQL
-  mariadb:
-    <<: *common-keys-apps-isolated
-    container_name: mariadb
-    image: mariadb
-    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
-    networks:
-      - nextcloud
-    volumes:
-      - $DOCKERDIR/appdata/nextcloud/db:/var/lib/mysql
-    environment:
-      MYSQL_USER: mariadb
-      MYSQL_DATABASE: mariadb
-      MYSQL_ROOT_PASSWORD: $DB_PASSWORD_ROOT
-      MYSQL_PASSWORD: mariadb
-
   # -> Jellyfin - Mediaserver
   jellyfin:
-    <<: *common-keys-apps-isolated
-    container_name: 'jellyfin'
+    container_name: "jellyfin"
     image: jellyfin/jellyfin
     user: $PUID:$PGID
-    group_add:
-      # by id as these may not exist within the container. Needed to provide permissions to the VAAPI Devices
-      - '107' #render
-      - '44' #video
-    # # Network mode of 'host' exposes the ports on the host. This is needed for DLNA access.
-    network_mode: 'host'
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["apps", "all"]
+    # group_add:
+    #   - '109' #render
+    #   - '44' #video
+    network_mode: "host"
     volumes:
       - $DOCKERDIR/appdata/jellyfin/config:/config
       - $DOCKERDIR/appdata/jellyfin/cache:/cache
-      # Update this configuration as desired
       - $MEDIADIR/media:/media
     devices:
-      # VAAPI Devices
-      # - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card0:/dev/dri/card0
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    runtime: nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           capabilities: [ gpu, video, compute, utility ]
     labels:
-      - 'traefik.enable=true'
+      - "traefik.enable=true"
       ## HTTP Router
-      - 'traefik.http.routers.jellyfin.entryPoints=secure'
-      - 'traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
+      - "traefik.http.routers.jellyfin.entryPoints=secure"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)"
       ## TLS config
-      - 'traefik.http.routers.jellyfin.tls=true'
-      - 'traefik.http.routers.jellyfin.tls.domains=jellyfin.$DOMAINNAME_CLOUD_SERVER'
+      - "traefik.http.routers.jellyfin.tls=true"
+      - "traefik.http.routers.jellyfin.tls.domains=jellyfin.$DOMAINNAME_CLOUD_SERVER"
       ## Middleware
-      - 'traefik.http.routers.jellyfin.middlewares=jellyfin-mw'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.customResponseHeaders.X-Robots-Tag=noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLRedirect=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jellyfin.$DOMAINNAME_CLOUD_SERVER:9999'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLForceHost=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.STSSeconds=315360000'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.STSIncludeSubdomains=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.STSPreload=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.forceSTSHeader=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.frameDeny=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.contentTypeNosniff=true'
-      - 'traefik.http.middlewares.jellyfin-mw.headers.browserXSSFilter=true'
+      - "traefik.http.routers.jellyfin.middlewares=jellyfin-mw"
+      - "traefik.http.middlewares.jellyfin-mw.headers.customResponseHeaders.X-Robots-Tag=noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
+      - "traefik.http.middlewares.jellyfin-mw.headers.SSLRedirect=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jellyfin.$DOMAINNAME_CLOUD_SERVER:9999"
+      - "traefik.http.middlewares.jellyfin-mw.headers.SSLForceHost=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.STSSeconds=315360000"
+      - "traefik.http.middlewares.jellyfin-mw.headers.STSIncludeSubdomains=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.STSPreload=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.frameDeny=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.jellyfin-mw.headers.browserXSSFilter=true"
       - "traefik.http.middlewares.jellyfin-mw.headers.customFrameOptionsValue='allow-from https://$DOMAINNAME_CLOUD_SERVER'"
       ## HTTP Service
-      - 'traefik.http.routers.jellyfin.service=jellyfin-svc@file'
-      - 'traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096'
-      - 'traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true'
+      - "traefik.http.routers.jellyfin.service=jellyfin-svc@file"
+      - "traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096"
+      - "traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true"
       ## Redirection of HTTP on port 9999 to HTTPS on port 9999 (consistent protocol)
-      - 'traefik.http.routers.jellyfin-insecure.entryPoints=secure'
-      - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
-      - 'traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw'
-      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https'
-      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999'
-      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false'
-      - 'traefik.http.routers.jellyfin-insecure.service=noop@internal'
+      - "traefik.http.routers.jellyfin-insecure.entryPoints=secure"
+      - "traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)"
+      - "traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw"
+      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999"
+      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false"
+      - "traefik.http.routers.jellyfin-insecure.service=noop@internal"
 
-  ## DOWNLOADERS ##
   # jDownloader - Download management
   jdownloader:
-    <<: *common-keys-downloaders
     image: jlesage/jdownloader-2:latest
     container_name: jdownloader
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["downloaders", "all"]
+    networks:
+      - traefik_proxy
     ports:
       - "$PORT_JDOWN:5800"
     volumes:
@@ -433,9 +345,12 @@ services:
 
   # TransmissionBT - Torrent VPN Downloader
   transmission-vpn:
-    <<: *common-keys-downloaders
     image: haugene/transmission-openvpn:latest
     container_name: transmission-vpn
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["downloaders", "all"]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.169
@@ -457,10 +372,11 @@ services:
       USER_ID: $PUID
       GROUP_ID: $PGID
       TZ: $TZ
+      CREATE_TUN_DEVICE: true
       OPENVPN_PROVIDER: NORDVPN
       OPENVPN_USERNAME: $NORD_USERNAME
       OPENVPN_PASSWORD: $NORD_PASSWORD
-      NORDVPN_COUNTRY: BR
+      # NORDVPN_COUNTRY: BR
       NORDVPN_PROTOCOL: tcp
       NORDVPN_CATEGORY: legacy_p2p
       LOCAL_NETWORK: "$LOCAL_NETWORK"
@@ -499,10 +415,15 @@ services:
 
   # qBittorrent - Torrent downloader
   qbittorrent:
-    <<: *common-keys-downloaders
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    network_mode: container:transmission-vpn
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["downloaders", "all"]
+    networks:
+      - traefik_proxy
+    # network_mode: container:transmission-vpn
     ports:
       - "$PORT_QBIT:8080"
     volumes:
@@ -526,9 +447,12 @@ services:
 
   # nzbget - Binary newsgrabber (NZB downloader)
   nzbget:
-    <<: *common-keys-downloaders
     image: lscr.io/linuxserver/nzbget
     container_name: nzbget
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["downloaders", "all"]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.216
@@ -536,7 +460,7 @@ services:
       - "$PORT_NZBGET:6789"
     volumes:
       - $DOCKERDIR/appdata/nzbget/config:/config
-      - $MEDIADIR/downloads:/data/downloads
+      - $MEDIADIR/usenet:/data/usenet
     environment:
       USER_ID: $PUID
       GROUP_ID: $PGID
@@ -558,12 +482,14 @@ services:
       - "traefik.http.routers.nzbget-rtr-bypass.service=nzbget-svc"
       - "traefik.http.services.nzbget-svc.loadbalancer.server.port=6789"
 
-  ## MEDIA ##
   # Prowlarr - Torrent proxy
   prowlarr:
-    <<: *common-keys-media
     image: ghcr.io/linuxserver/prowlarr:develop
     container_name: prowlarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["media", "all"]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.162
@@ -589,9 +515,12 @@ services:
 
   # Radarr - Movie management
   radarr:
-    <<: *common-keys-media
     image: lscr.io/linuxserver/radarr:nightly # latest was causing "Error parsing column 45"
     container_name: radarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["media", "all"]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.164
@@ -599,9 +528,7 @@ services:
       - "$PORT_RADARR:7878"
     volumes:
       - $DOCKERDIR/appdata/radarr/config:/config
-      - $MEDIADIR/temp/appdata/radarr/MediaCover:/config/MediaCover
       - $MEDIADIR:/data
-      - $MEDIADIR/downloads/torrents:/data/downloads/torrents
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       USER_ID: $PUID
@@ -628,9 +555,12 @@ services:
 
   # Sonarr - TV Shows management
   sonarr:
-    <<: *common-keys-media
     image: lscr.io/linuxserver/sonarr
     container_name: sonarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["media", "all"]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.167
@@ -638,9 +568,7 @@ services:
       - "$PORT_SONARR:8989"
     volumes:
       - $DOCKERDIR/appdata/sonarr:/config
-      - $MEDIADIR/temp/appdata/sonarr/MediaCover:/config/MediaCover
       - $MEDIADIR:/data
-      - $MEDIADIR/downloads/torrents:/data/downloads/torrents
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       USER_ID: $PUID
@@ -664,3 +592,59 @@ services:
       - "traefik.http.routers.sonarr-rtr.service=sonarr-svc"
       - "traefik.http.routers.sonarr-rtr-bypass.service=sonarr-svc"
       - "traefik.http.services.sonarr-svc.loadbalancer.server.port=8989"
+  # Bazarr - Subtitle Management
+  bazarr:
+    image: lscr.io/linuxserver/bazarr
+    container_name: bazarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["media", "all"]
+    networks:
+      - traefik_proxy
+    ports:
+      - "$PORT_BAZARR:6767"
+    volumes:
+      - $DOCKERDIR/appdata/bazarr:/config
+      - $MEDIADIR/media:/data/media
+    environment:
+      USER_ID: $PUID
+      GROUP_ID: $PGID
+      TZ: $TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers Auth
+      - "traefik.http.routers.bazarr-rtr.entrypoints=https"
+      - "traefik.http.routers.bazarr-rtr.rule=Host(`bazarr.$DOMAINNAME_CLOUD_SERVER`)"
+      ## Middlewares
+      - "traefik.http.routers.bazarr-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.bazarr-rtr.service=bazarr-svc"
+      - "traefik.http.services.bazarr-svc.loadbalancer.server.port=6767"
+  # Jellyseer - Manager
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    profiles: ["media", "all"]
+    networks:
+      - traefik_proxy
+    environment:
+      LOG_LEVEL: debug
+      TZ: $TZ
+    ports:
+      - "$PORT_JELLYSEER:5055"
+    volumes:
+      - $DOCKERDIR/appdata/jellyseer:/app/config
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers Auth
+      - "traefik.http.routers.jellyseer-rtr.entrypoints=https"
+      - "traefik.http.routers.jellyseer-rtr.rule=Host(`jellyseer.$DOMAINNAME_CLOUD_SERVER`)"
+      ## Middlewares
+      - "traefik.http.routers.jellyseer-rtr.middlewares=chain-oauth@file"
+      ## HTTP Services
+      - "traefik.http.routers.jellyseer-rtr.service=jellyseer-svc"
+      - "traefik.http.services.jellyseer-svc.loadbalancer.server.port=5055"
