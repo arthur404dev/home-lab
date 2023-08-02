@@ -1,5 +1,3 @@
-version: "3.7"
-
 ### -> NETWORKS
 networks:
   traefik_proxy:
@@ -23,7 +21,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["core", "all"]
+    profiles: [ "core", "all" ]
     command:
       - --global.checkNewVersion=true
       - --global.sendAnonymousUsage=true
@@ -131,7 +129,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["core", "all"]
+    profiles: [ "core", "all" ]
     networks:
       - traefik_proxy
     environment:
@@ -165,7 +163,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["core", "all"]
+    profiles: [ "core", "all" ]
     networks:
       - traefik_proxy
     # ports:
@@ -195,7 +193,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["core", "all"]
+    profiles: [ "core", "all" ]
     networks:
       - traefik_proxy
     volumes:
@@ -221,7 +219,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["apps", "all"]
+    profiles: [ "apps", "all" ]
     networks:
       - traefik_proxy
     volumes:
@@ -243,17 +241,12 @@ services:
 
   # -> Jellyfin - Mediaserver
   jellyfin:
-    container_name: "jellyfin"
+    container_name: 'jellyfin'
     image: jellyfin/jellyfin
-    user: $PUID:$PGID
-    security_opt:
-      - no-new-privileges:true
+    user: 1000:1000
     restart: unless-stopped
-    profiles: ["apps", "all"]
-    # group_add:
-    #   - '109' #render
-    #   - '44' #video
-    network_mode: "host"
+    profiles: [ "apps", "all" ]
+    network_mode: 'host'
     volumes:
       - $DOCKERDIR/appdata/jellyfin/config:/config
       - $DOCKERDIR/appdata/jellyfin/cache:/cache
@@ -266,46 +259,45 @@ services:
       - /dev/nvidia-uvm:/dev/nvidia-uvm
       - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
     runtime: nvidia
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           capabilities: [ gpu, video, compute, utility ]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [ gpu ]
     labels:
-      - "traefik.enable=true"
+      - 'traefik.enable=true'
       ## HTTP Router
-      - "traefik.http.routers.jellyfin.entryPoints=secure"
-      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)"
+      - 'traefik.http.routers.jellyfin.entryPoints=secure'
+      - 'traefik.http.routers.jellyfin.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
       ## TLS config
-      - "traefik.http.routers.jellyfin.tls=true"
-      - "traefik.http.routers.jellyfin.tls.domains=jellyfin.$DOMAINNAME_CLOUD_SERVER"
+      - 'traefik.http.routers.jellyfin.tls=true'
+      - 'traefik.http.routers.jellyfin.tls.domains=jellyfin.$DOMAINNAME_CLOUD_SERVER'
       ## Middleware
-      - "traefik.http.routers.jellyfin.middlewares=jellyfin-mw"
-      - "traefik.http.middlewares.jellyfin-mw.headers.customResponseHeaders.X-Robots-Tag=noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
-      - "traefik.http.middlewares.jellyfin-mw.headers.SSLRedirect=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jellyfin.$DOMAINNAME_CLOUD_SERVER:9999"
-      - "traefik.http.middlewares.jellyfin-mw.headers.SSLForceHost=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.STSSeconds=315360000"
-      - "traefik.http.middlewares.jellyfin-mw.headers.STSIncludeSubdomains=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.STSPreload=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.forceSTSHeader=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.frameDeny=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.jellyfin-mw.headers.browserXSSFilter=true"
+      - 'traefik.http.routers.jellyfin.middlewares=jellyfin-mw'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.customResponseHeaders.X-Robots-Tag=noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLRedirect=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLHost=jellyfin.$DOMAINNAME_CLOUD_SERVER:9999'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.SSLForceHost=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.STSSeconds=315360000'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.STSIncludeSubdomains=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.STSPreload=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.forceSTSHeader=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.frameDeny=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.contentTypeNosniff=true'
+      - 'traefik.http.middlewares.jellyfin-mw.headers.browserXSSFilter=true'
       - "traefik.http.middlewares.jellyfin-mw.headers.customFrameOptionsValue='allow-from https://$DOMAINNAME_CLOUD_SERVER'"
       ## HTTP Service
-      - "traefik.http.routers.jellyfin.service=jellyfin-svc@file"
-      - "traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096"
-      - "traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true"
+      - 'traefik.http.routers.jellyfin.service=jellyfin-svc@file'
+      - 'traefik.http.services.jellyfin-svc.loadBalancer.server.port=8096'
+      - 'traefik.http.services.jellyfin-svc.loadBalancer.passHostHeader=true'
       ## Redirection of HTTP on port 9999 to HTTPS on port 9999 (consistent protocol)
-      - "traefik.http.routers.jellyfin-insecure.entryPoints=secure"
-      - "traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)"
-      - "traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw"
-      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999"
-      - "traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false"
-      - "traefik.http.routers.jellyfin-insecure.service=noop@internal"
+      - 'traefik.http.routers.jellyfin-insecure.entryPoints=secure'
+      - 'traefik.http.routers.jellyfin-insecure.rule=Host(`jellyfin.$DOMAINNAME_CLOUD_SERVER`)'
+      - 'traefik.http.routers.jellyfin-insecure.middlewares=jellyfin-insecure-mw'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.scheme=https'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.port=9999'
+      - 'traefik.http.middlewares.jellyfin-insecure-mw.redirectscheme.permanent=false'
+      - 'traefik.http.routers.jellyfin-insecure.service=noop@internal'
 
   # jDownloader - Download management
   jdownloader:
@@ -314,7 +306,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["downloaders", "all"]
+    profiles: [ "downloaders", "all" ]
     networks:
       - traefik_proxy
     ports:
@@ -350,7 +342,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["downloaders", "all"]
+    profiles: [ "downloaders", "all" ]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.169
@@ -420,7 +412,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["downloaders", "all"]
+    profiles: [ "downloaders", "all" ]
     networks:
       - traefik_proxy
     # network_mode: container:transmission-vpn
@@ -452,7 +444,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["downloaders", "all"]
+    profiles: [ "downloaders", "all" ]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.216
@@ -489,7 +481,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["media", "all"]
+    profiles: [ "media", "all" ]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.162
@@ -520,7 +512,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["media", "all"]
+    profiles: [ "media", "all" ]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.164
@@ -560,7 +552,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["media", "all"]
+    profiles: [ "media", "all" ]
     networks:
       traefik_proxy:
         ipv4_address: 192.168.90.167
@@ -599,7 +591,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["media", "all"]
+    profiles: [ "media", "all" ]
     networks:
       - traefik_proxy
     ports:
@@ -628,7 +620,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-    profiles: ["media", "all"]
+    profiles: [ "media", "all" ]
     networks:
       - traefik_proxy
     environment:
